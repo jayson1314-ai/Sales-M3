@@ -371,8 +371,20 @@ function newRow(pn="", qty=""){
   return {id: ++seq, pn: pn.trim(), qty: qty, overrides:{}};
 }
 
+let DB_UPPER_INDEX = null;
+
+function rebuildDbIndex(){
+  DB_UPPER_INDEX = {};
+  for(const k in DB){ DB_UPPER_INDEX[k.toUpperCase()] = k; }
+}
+
 function lookup(pn){
-  return DB[pn.trim()] || null;
+  const trimmed = pn.trim();
+  if(DB[trimmed]) return DB[trimmed];
+  if(!DB_UPPER_INDEX) rebuildDbIndex();
+  // P/N lookup is case-insensitive: "21-off0136" matches "21-OFF0136" in the database.
+  const realKey = DB_UPPER_INDEX[trimmed.toUpperCase()];
+  return realKey ? DB[realKey] : null;
 }
 
 // Category prefix reference (EMAS "Set 1 (11) Main Category" code sheet).
@@ -806,6 +818,7 @@ function handleDbUpload(){
       }
       // Uploaded data overrides/extends whatever DB currently holds.
       DB = Object.assign({}, DB, uploadedDb);
+      rebuildDbIndex();
       const meta = {filename: file.name, count: Object.keys(DB).length, uploadedCount: uploadedCount};
       try{
         localStorage.setItem(DB_STORAGE_KEY, JSON.stringify({db: DB, meta: meta}));
@@ -840,6 +853,7 @@ function loadDbOverride(){
     const parsed = JSON.parse(raw);
     if(parsed && parsed.db && parsed.meta){
       DB = parsed.db;
+      rebuildDbIndex();
       renderDbStatus(parsed.meta);
     } else {
       renderDbStatus(null);
